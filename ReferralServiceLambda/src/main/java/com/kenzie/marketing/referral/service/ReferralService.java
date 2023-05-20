@@ -15,6 +15,7 @@ import javax.inject.Inject;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ReferralService {
 
@@ -49,10 +50,11 @@ public class ReferralService {
 
     public List<Referral> getDirectReferrals(String customerId) {
         List<ReferralRecord> records = referralDao.findByReferrerId(customerId);
-
-        // Task 1 Code Here
-
-        return null;
+        List<Referral> referrals = records.stream()
+                .map(referralRecord -> new Referral(referralRecord.getCustomerId(),
+                        referralRecord.getReferrerId(), referralRecord.getDateReferred().toString()))
+                .collect(Collectors.toList());
+        return referrals;
     }
 
 
