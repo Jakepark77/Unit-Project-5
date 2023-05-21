@@ -15,8 +15,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.TreeSet;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -53,22 +52,40 @@ public class ReferralService {
         leaderboard.add(new LeaderboardEntry());
         leaderboard.add(new LeaderboardEntry());
         List<ReferralRecord> referrals = referralDao.findUsersWithoutReferrerId();
+        List<Future<LeaderboardEntry>> threadFutures = new ArrayList<>();
         for(ReferralRecord referralRecord : referrals){
             List<Referral> referralList = getDirectReferrals(referralRecord.getCustomerId());
             int sizeOfList = referralList.size();
             LeaderboardEntry leaderboardEntry = new LeaderboardEntry(sizeOfList, referralRecord.getCustomerId());
-            for(LeaderboardEntry leaderboardEntry1 : leaderboard){
+            threadFutures.add((Future<LeaderboardEntry>) executor.submit(()-> {for(LeaderboardEntry leaderboardEntry1 : leaderboard){
                 int compare = comparator.compare(leaderboardEntry1, leaderboardEntry);
                 if(compare == leaderboardEntry.getNumReferrals()){
                     leaderboard.remove(leaderboard.first());
                     leaderboard.add(leaderboardEntry);
                 }
+                }
+            }));
             }
-            }
-        List<LeaderboardEntry> list = new ArrayList<>(leaderboard);
-        return list;
+        executor.shutdown();
+        try{
+            executor.awaitTermination(20, TimeUnit.SECONDS);
+        }catch(InterruptedException e){
+            throw new RuntimeException("Executor was interrupted" + e);
+        }
+        List< LeaderboardEntry> finalList = condenseLists(threadFutures);
+        return finalList;
         }
 
+        public List<LeaderboardEntry> condenseLists(List<Future<LeaderboardEntry>> threadFutures){
+        List<LeaderboardEntry> finalList = new ArrayList<>();
+        try{
+        for(Future<LeaderboardEntry> leaderboardEntryFuture : threadFutures){
+            finalList.add(leaderboardEntryFuture.get());
+        }}catch (ExecutionException|InterruptedException e){
+            return new ArrayList<>();
+        }
+        return finalList;
+        }
 
 
     public CustomerReferrals getCustomerReferralSummary(String customerId) {
