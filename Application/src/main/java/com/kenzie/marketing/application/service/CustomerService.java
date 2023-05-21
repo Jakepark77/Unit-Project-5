@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -42,10 +43,9 @@ public class CustomerService {
      */
     public List<CustomerResponse> findAllCustomers() {
         List<CustomerRecord> records = StreamSupport.stream(customerRepository.findAll().spliterator(), true).collect(Collectors.toList());
-        List<CustomerResponse> responses = records.stream()
+        return records.stream()
                 .map(this::createCustomerResponse)
                 .collect(Collectors.toList());
-        return responses;
     }
 
     /**
@@ -55,13 +55,11 @@ public class CustomerService {
      */
     public CustomerResponse getCustomer(String customerId) {
         Optional<CustomerRecord> record = customerRepository.findById(customerId);
-        CustomerResponse response = createCustomerResponse(record.get());
-        return response;
+        return createCustomerResponse(record.get());
     }
 
     /**
      * addNewCustomer
-     *
      * This creates a new customer.  If the referrerId is included, the referrerId must be valid and have a
      * corresponding customer in the DB.  This posts the referrals to the referral service
      * @param createCustomerRequest
@@ -80,8 +78,7 @@ public class CustomerService {
                 referralRequest.setCustomerId(record.getId());
                 referralRequest.setReferrerId(createCustomerRequest.getReferrerId().toString());
                 referralServiceClient.addReferral(referralRequest);
-                CustomerResponse response = createCustomerResponse(record);
-                return response;
+                return createCustomerResponse(record);
             }
             return null;
         }
@@ -95,32 +92,13 @@ public class CustomerService {
         referralRequest.setCustomerId(record.getId());
         referralRequest.setReferrerId("");
         referralServiceClient.addReferral(referralRequest);
-        CustomerResponse response = createCustomerResponse(record);
-        return response;
+        return createCustomerResponse(record);
     }
 
-    public CustomerResponse createCustomerResponse(CustomerRecord customerRecord){
-        if(customerRecord.getReferrerId().isEmpty()){
-            CustomerResponse response = new CustomerResponse();
-            response.setId(customerRecord.getId());
-            response.setName(customerRecord.getName());
-            response.setReferrerId("");
-            response.setDateJoined(customerRecord.getDateCreated());
-            response.setReferrerName("");
-            return response;
-        }
-        CustomerResponse response = new CustomerResponse();
-        response.setId(customerRecord.getId());
-        response.setName(customerRecord.getName());
-        response.setReferrerId(customerRecord.getReferrerId());
-        response.setDateJoined(customerRecord.getDateCreated());
-        Optional<CustomerRecord> record = customerRepository.findById(customerRecord.getReferrerId());
-        response.setReferrerName(record.get().getName());
-        return response;
-    }
+
     /**
      * updateCustomer - This updates the customer name for the given customer id
-     * @param customerId - The Id of the customer to update
+     * @param customerId - The id of the customer to update
      * @param customerName - The new name for the customer
      */
     public CustomerResponse updateCustomer(String customerId, String customerName) {
@@ -131,8 +109,7 @@ public class CustomerService {
         CustomerRecord customerRecord = customerExists.get();
         customerRecord.setName(customerName);
         customerRepository.save(customerRecord);
-        CustomerResponse response = createCustomerResponse(customerRecord);
-        return response;
+        return createCustomerResponse(customerRecord);
     }
 
     /**
@@ -168,10 +145,9 @@ public class CustomerService {
     public List<CustomerResponse> getReferrals(String customerId) {
         if(customerRepository.existsById(customerId)) {
             List<Referral> referrals = referralServiceClient.getDirectReferrals(customerId);
-            List<CustomerResponse> responses = referrals.stream()
+            return referrals.stream()
                     .map(referral -> getCustomer(referral.getCustomerId()))
                     .collect(Collectors.toList());
-            return responses;
         }
         throw new IllegalArgumentException();
     }
@@ -181,12 +157,39 @@ public class CustomerService {
      * @return
      */
     public List<LeaderboardUiEntry> getLeaderboard() {
+        List<LeaderboardEntry> listOfLeaders = referralServiceClient.getLeaderboard();
 
-        // Task 2 - Add your code here
-
-        return null;
+        return listOfLeaders.stream()
+                .map(leaderboardEntry -> {
+                    CustomerResponse response = getCustomer(leaderboardEntry.getCustomerId());
+                    if(response.getName() == null){
+                        response.setName("no name found");
+                    }
+                    return new LeaderboardUiEntry(leaderboardEntry.getCustomerId(),
+                            response.getName(), leaderboardEntry.getNumReferrals());
+                })
+                .collect(Collectors.toList());
     }
 
+    private CustomerResponse createCustomerResponse(CustomerRecord customerRecord){
+        if(customerRecord.getReferrerId().isEmpty()){
+            CustomerResponse response = new CustomerResponse();
+            response.setId(customerRecord.getId());
+            response.setName(customerRecord.getName());
+            response.setReferrerId("");
+            response.setDateJoined(customerRecord.getDateCreated());
+            response.setReferrerName("");
+            return response;
+        }
+        CustomerResponse response = new CustomerResponse();
+        response.setId(customerRecord.getId());
+        response.setName(customerRecord.getName());
+        response.setReferrerId(customerRecord.getReferrerId());
+        response.setDateJoined(customerRecord.getDateCreated());
+        Optional<CustomerRecord> record = customerRepository.findById(customerRecord.getReferrerId());
+        response.setReferrerName(record.get().getName());
+        return response;
+    }
     /* -----------------------------------------------------------------------------------------------------------
         Private Methods
        ----------------------------------------------------------------------------------------------------------- */

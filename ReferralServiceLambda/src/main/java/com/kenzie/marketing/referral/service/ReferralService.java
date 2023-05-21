@@ -12,6 +12,9 @@ import com.kenzie.marketing.referral.service.model.ReferralRecord;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.List;
@@ -35,15 +38,56 @@ public class ReferralService {
     }
 
     public List<LeaderboardEntry> getReferralLeaderboard() {
-        // Task 3 Code Here
-        return null;
-    }
+        Comparator<LeaderboardEntry> comparator = ((o1, o2) -> {
+            if(o1.getNumReferrals() > o2.getNumReferrals()){
+                return o1.getNumReferrals();
+            } else if (o1.getNumReferrals() < o2.getNumReferrals()) {
+                return o2.getNumReferrals();
+            }else
+                return Integer.parseInt(null);
+        });
+        TreeSet<LeaderboardEntry> leaderboard = new TreeSet<>();
+        leaderboard.add(new LeaderboardEntry());
+        leaderboard.add(new LeaderboardEntry());
+        leaderboard.add(new LeaderboardEntry());
+        leaderboard.add(new LeaderboardEntry());
+        leaderboard.add(new LeaderboardEntry());
+        List<ReferralRecord> referrals = referralDao.findUsersWithoutReferrerId();
+        for(ReferralRecord referralRecord : referrals){
+            List<Referral> referralList = getDirectReferrals(referralRecord.getCustomerId());
+            int sizeOfList = referralList.size();
+            LeaderboardEntry leaderboardEntry = new LeaderboardEntry(sizeOfList, referralRecord.getCustomerId());
+            for(LeaderboardEntry leaderboardEntry1 : leaderboard){
+                int compare = comparator.compare(leaderboardEntry1, leaderboardEntry);
+                if(compare == leaderboardEntry.getNumReferrals()){
+                    leaderboard.remove(leaderboard.first());
+                    leaderboard.add(leaderboardEntry);
+                }
+            }
+            }
+        List<LeaderboardEntry> list = new ArrayList<>(leaderboard);
+        return list;
+        }
+
+
 
     public CustomerReferrals getCustomerReferralSummary(String customerId) {
         CustomerReferrals referrals = new CustomerReferrals();
-
-        // Task 2 Code Here
-
+        Integer numOfFirstReferrals = 0;
+        Integer numOfSecondReferrals = 0;
+        Integer numOfThirdReferrals = 0;
+        for(ReferralRecord referral : referralDao.findByReferrerId(customerId)){
+            numOfFirstReferrals++;
+            for(ReferralRecord referralRecord : referralDao.findByReferrerId(referral.getCustomerId())){
+                numOfSecondReferrals++;
+                for(ReferralRecord record : referralDao.findByReferrerId(referralRecord.getCustomerId())){
+                    numOfThirdReferrals++;
+                }
+            }
+        }
+        referrals.setNumFirstLevelReferrals(numOfFirstReferrals);
+        referrals.setNumSecondLevelReferrals(numOfSecondReferrals);
+        referrals.setNumThirdLevelReferrals(numOfThirdReferrals);
         return referrals;
     }
 
