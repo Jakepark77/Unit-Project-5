@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CachingReferralDao.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ReferralServiceLambda</a> &gt; <a href="index.source.html" class="el_package">com.kenzie.marketing.referral.service.dao</a> &gt; <span class="el_source">CachingReferralDao.java</span></div><h1>CachingReferralDao.java</h1><pre class="source lang-java linenums">package com.kenzie.marketing.referral.service.dao;
+
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBScanExpression;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.TypeAdapter;
+import com.google.gson.reflect.TypeToken;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
+import com.kenzie.marketing.referral.service.caching.CacheClient;
+import com.kenzie.marketing.referral.service.model.ReferralRecord;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+
+import javax.inject.Inject;
+import javax.security.auth.callback.CallbackHandler;
+import java.io.IOException;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+public class CachingReferralDao implements ReferralDao{
+
+    private static final int REFERRAL_READ_TTL = 60 * 60;
+    private static final String REFERRAL_KEY = &quot;ReferralKey::%s&quot;;
+
+    private final CacheClient cacheClient;
+    private final NonCachingReferralDao referralDao;
+    private DynamoDBMapper mapper;
+<span class="nc" id="L33">    GsonBuilder builder = new GsonBuilder().registerTypeAdapter(</span>
+            ZonedDateTime.class,
+<span class="nc" id="L35">            new TypeAdapter&lt;ZonedDateTime&gt;() {</span>
+                @Override
+                public void write(JsonWriter out, ZonedDateTime value) throws IOException {
+<span class="nc" id="L38">                    out.value(value.toString());</span>
+<span class="nc" id="L39">                }</span>
+                @Override
+                public ZonedDateTime read(JsonReader in) throws IOException {
+<span class="nc" id="L42">                    return ZonedDateTime.parse(in.nextString());</span>
+                }
+            }
+<span class="nc" id="L45">    ).enableComplexMapKeySerialization();</span>
+<span class="nc" id="L46">    Gson gson = builder.create();</span>
+
+    private List&lt;ReferralRecord&gt; fromJson(String json) {
+<span class="nc" id="L49">        return gson.fromJson(json, new TypeToken&lt;ArrayList&lt;ReferralRecord&gt;&gt;() { }.getType());</span>
+    }
+
+    @Inject
+<span class="nc" id="L53">    public CachingReferralDao(CacheClient cacheClient, NonCachingReferralDao referralDao){</span>
+<span class="nc" id="L54">        this.cacheClient = cacheClient;</span>
+<span class="nc" id="L55">        this.referralDao = referralDao;</span>
+<span class="nc" id="L56">    }</span>
+
+    @Override
+    public ReferralRecord addReferral(ReferralRecord referral){
+<span class="nc" id="L60">        cacheClient.invalidate(referral.getReferrerId());</span>
+<span class="nc" id="L61">        referralDao.addReferral(referral);</span>
+<span class="nc" id="L62">        cacheClient.setValue(referral.getReferrerId(),gson.toJson(referral));</span>
+<span class="nc" id="L63">        return referral;</span>
+    }
+
+    @Override
+    public boolean deleteReferral(ReferralRecord referral){
+<span class="nc" id="L68">        cacheClient.invalidate(referral.getReferrerId());</span>
+<span class="nc" id="L69">        return referralDao.deleteReferral(referral);</span>
+    }
+
+    @Override
+    public List&lt;ReferralRecord&gt; findByReferrerId(String referrerId){
+<span class="nc" id="L74">        List&lt;ReferralRecord&gt; records = fromJson(cacheClient.getValue(referrerId));</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        if(records.isEmpty()){</span>
+<span class="nc" id="L76">            return referralDao.findByReferrerId(referrerId);</span>
+        }
+<span class="nc" id="L78">        return records;</span>
+    }
+
+    @Override
+    public List&lt;ReferralRecord&gt; findUsersWithoutReferrerId(){
+<span class="nc" id="L83">        DynamoDBScanExpression scanExpression = new DynamoDBScanExpression()</span>
+<span class="nc" id="L84">                .withFilterExpression(&quot;attribute_not_exists(ReferrerId)&quot;);</span>
+
+<span class="nc" id="L86">        return mapper.scan(ReferralRecord.class, scanExpression);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

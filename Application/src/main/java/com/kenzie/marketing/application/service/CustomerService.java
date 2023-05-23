@@ -55,7 +55,10 @@ public class CustomerService {
      */
     public CustomerResponse getCustomer(String customerId) {
         Optional<CustomerRecord> record = customerRepository.findById(customerId);
-        return createCustomerResponse(record.get());
+        if(record.isPresent()) {
+            return createCustomerResponse(record.get());
+        }
+        return null;
     }
 
     /**
@@ -85,12 +88,12 @@ public class CustomerService {
         CustomerRecord record = new CustomerRecord();
         record.setName(createCustomerRequest.getName());
         record.setId(randomUUID().toString());
-        record.setReferrerId("");
+        record.setReferrerId(null);
         record.setDateCreated(LocalDateTime.now().toString());
         customerRepository.save(record);
         ReferralRequest referralRequest = new ReferralRequest();
         referralRequest.setCustomerId(record.getId());
-        referralRequest.setReferrerId("");
+        referralRequest.setReferrerId(null);
         referralServiceClient.addReferral(referralRequest);
         return createCustomerResponse(record);
     }
@@ -172,13 +175,13 @@ public class CustomerService {
     }
 
     private CustomerResponse createCustomerResponse(CustomerRecord customerRecord){
-        if(customerRecord.getReferrerId().isEmpty()){
+        if(customerRecord.getReferrerId() == null){
             CustomerResponse response = new CustomerResponse();
             response.setId(customerRecord.getId());
             response.setName(customerRecord.getName());
-            response.setReferrerId("");
+            response.setReferrerId(null);
             response.setDateJoined(customerRecord.getDateCreated());
-            response.setReferrerName("");
+            response.setReferrerName(null);
             return response;
         }
         CustomerResponse response = new CustomerResponse();

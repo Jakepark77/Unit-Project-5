@@ -206,6 +206,22 @@ public class CustomerServiceTest {
      *  customerService.deleteCustomer
      *  ------------------------------------------------------------------------ **/
 
-    // Write additional tests here
+    @Test
+    void deleteCustomer_deletesCustomer(){
+        String customerName = "customerName";
+
+        CreateCustomerRequest request = new CreateCustomerRequest();
+        request.setName(customerName);
+        request.setReferrerId(Optional.empty());
+
+        ArgumentCaptor<CustomerRecord> customerRecordCaptor = ArgumentCaptor.forClass(CustomerRecord.class);
+
+        // WHEN
+        CustomerResponse returnedCustomer = customerService.addNewCustomer(request);
+
+        customerService.deleteCustomer(returnedCustomer.getId());
+
+        Assertions.assertFalse(customerRepository.existsById(returnedCustomer.getId()), "The Customer Was Deleted");
+    }
 
 }

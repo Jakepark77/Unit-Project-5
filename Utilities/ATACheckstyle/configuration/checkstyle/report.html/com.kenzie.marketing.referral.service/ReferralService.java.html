@@ -12,9 +12,12 @@ import com.kenzie.marketing.referral.service.model.ReferralRecord;
 
 import javax.inject.Inject;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.TreeSet;
+import java.util.concurrent.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ReferralService {
 
@@ -22,71 +25,131 @@ public class ReferralService {
     private ExecutorService executor;
 
     @Inject
-<span class="fc" id="L25">    public ReferralService(ReferralDao referralDao) {</span>
-<span class="fc" id="L26">        this.referralDao = referralDao;</span>
-<span class="fc" id="L27">        this.executor = Executors.newCachedThreadPool();</span>
-<span class="fc" id="L28">    }</span>
+<span class="fc" id="L28">    public ReferralService(ReferralDao referralDao) {</span>
+<span class="fc" id="L29">        this.referralDao = referralDao;</span>
+<span class="fc" id="L30">        this.executor = Executors.newCachedThreadPool();</span>
+<span class="fc" id="L31">    }</span>
 
     // Necessary for testing, do not delete
-<span class="nc" id="L31">    public ReferralService(ReferralDao referralDao, ExecutorService executor) {</span>
-<span class="nc" id="L32">        this.referralDao = referralDao;</span>
-<span class="nc" id="L33">        this.executor = executor;</span>
-<span class="nc" id="L34">    }</span>
+<span class="nc" id="L34">    public ReferralService(ReferralDao referralDao, ExecutorService executor) {</span>
+<span class="nc" id="L35">        this.referralDao = referralDao;</span>
+<span class="nc" id="L36">        this.executor = executor;</span>
+<span class="nc" id="L37">    }</span>
 
     public List&lt;LeaderboardEntry&gt; getReferralLeaderboard() {
-        // Task 3 Code Here
-<span class="nc" id="L38">        return null;</span>
-    }
+<span class="nc" id="L40">        Comparator&lt;LeaderboardEntry&gt; comparator = ((o1, o2) -&gt; {</span>
+<span class="nc bnc" id="L41" title="All 2 branches missed.">            if(o1.getNumReferrals() &gt; o2.getNumReferrals()){</span>
+<span class="nc" id="L42">                return o1.getNumReferrals();</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">            } else if (o1.getNumReferrals() &lt; o2.getNumReferrals()) {</span>
+<span class="nc" id="L44">                return o2.getNumReferrals();</span>
+            }else
+<span class="nc" id="L46">                return Integer.parseInt(null);</span>
+        });
+<span class="nc" id="L48">        TreeSet&lt;LeaderboardEntry&gt; leaderboard = new TreeSet&lt;&gt;();</span>
+<span class="nc" id="L49">        leaderboard.add(new LeaderboardEntry());</span>
+<span class="nc" id="L50">        leaderboard.add(new LeaderboardEntry());</span>
+<span class="nc" id="L51">        leaderboard.add(new LeaderboardEntry());</span>
+<span class="nc" id="L52">        leaderboard.add(new LeaderboardEntry());</span>
+<span class="nc" id="L53">        leaderboard.add(new LeaderboardEntry());</span>
+<span class="nc" id="L54">        List&lt;ReferralRecord&gt; referrals = referralDao.findUsersWithoutReferrerId();</span>
+<span class="nc" id="L55">        List&lt;Future&lt;LeaderboardEntry&gt;&gt; threadFutures = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        for(ReferralRecord referralRecord : referrals){</span>
+<span class="nc" id="L57">            List&lt;Referral&gt; referralList = getDirectReferrals(referralRecord.getCustomerId());</span>
+<span class="nc" id="L58">            int sizeOfList = referralList.size();</span>
+<span class="nc" id="L59">            LeaderboardEntry leaderboardEntry = new LeaderboardEntry(sizeOfList, referralRecord.getCustomerId());</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">            threadFutures.add((Future&lt;LeaderboardEntry&gt;) executor.submit(()-&gt; {for(LeaderboardEntry leaderboardEntry1 : leaderboard){</span>
+<span class="nc" id="L61">                int compare = comparator.compare(leaderboardEntry1, leaderboardEntry);</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">                if(compare == leaderboardEntry.getNumReferrals()){</span>
+<span class="nc" id="L63">                    leaderboard.remove(leaderboard.first());</span>
+<span class="nc" id="L64">                    leaderboard.add(leaderboardEntry);</span>
+                }
+<span class="nc" id="L66">                }</span>
+<span class="nc" id="L67">            }));</span>
+<span class="nc" id="L68">            }</span>
+<span class="nc" id="L69">        executor.shutdown();</span>
+        try{
+<span class="nc" id="L71">            executor.awaitTermination(20, TimeUnit.SECONDS);</span>
+<span class="nc" id="L72">        }catch(InterruptedException e){</span>
+<span class="nc" id="L73">            throw new RuntimeException(&quot;Executor was interrupted&quot; + e);</span>
+<span class="nc" id="L74">        }</span>
+<span class="nc" id="L75">        List&lt; LeaderboardEntry&gt; finalList = condenseLists(threadFutures);</span>
+<span class="nc" id="L76">        return finalList;</span>
+        }
+
+        public List&lt;LeaderboardEntry&gt; condenseLists(List&lt;Future&lt;LeaderboardEntry&gt;&gt; threadFutures){
+<span class="nc" id="L80">        List&lt;LeaderboardEntry&gt; finalList = new ArrayList&lt;&gt;();</span>
+        try{
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        for(Future&lt;LeaderboardEntry&gt; leaderboardEntryFuture : threadFutures){</span>
+<span class="nc" id="L83">            finalList.add(leaderboardEntryFuture.get());</span>
+<span class="nc" id="L84">        }}catch (ExecutionException|InterruptedException e){</span>
+<span class="nc" id="L85">            return new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L86">        }</span>
+<span class="nc" id="L87">        return finalList;</span>
+        }
+
 
     public CustomerReferrals getCustomerReferralSummary(String customerId) {
-<span class="nc" id="L42">        CustomerReferrals referrals = new CustomerReferrals();</span>
-
-        // Task 2 Code Here
-
-<span class="nc" id="L46">        return referrals;</span>
+<span class="nc" id="L92">        CustomerReferrals referrals = new CustomerReferrals();</span>
+<span class="nc" id="L93">        Integer numOfFirstReferrals = 0;</span>
+<span class="nc" id="L94">        Integer numOfSecondReferrals = 0;</span>
+<span class="nc" id="L95">        Integer numOfThirdReferrals = 0;</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        for(ReferralRecord referral : referralDao.findByReferrerId(customerId)){</span>
+<span class="nc" id="L97">            numOfFirstReferrals++;</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">            for(ReferralRecord referralRecord : referralDao.findByReferrerId(referral.getCustomerId())){</span>
+<span class="nc" id="L99">                numOfSecondReferrals++;</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">                for(ReferralRecord record : referralDao.findByReferrerId(referralRecord.getCustomerId())){</span>
+<span class="nc" id="L101">                    numOfThirdReferrals++;</span>
+<span class="nc" id="L102">                }</span>
+<span class="nc" id="L103">            }</span>
+<span class="nc" id="L104">        }</span>
+<span class="nc" id="L105">        referrals.setNumFirstLevelReferrals(numOfFirstReferrals);</span>
+<span class="nc" id="L106">        referrals.setNumSecondLevelReferrals(numOfSecondReferrals);</span>
+<span class="nc" id="L107">        referrals.setNumThirdLevelReferrals(numOfThirdReferrals);</span>
+<span class="nc" id="L108">        return referrals;</span>
     }
 
 
     public List&lt;Referral&gt; getDirectReferrals(String customerId) {
-<span class="fc" id="L51">        List&lt;ReferralRecord&gt; records = referralDao.findByReferrerId(customerId);</span>
-
-        // Task 1 Code Here
-
-<span class="fc" id="L55">        return null;</span>
+<span class="fc" id="L113">        List&lt;ReferralRecord&gt; records = referralDao.findByReferrerId(customerId);</span>
+<span class="fc" id="L114">        List&lt;Referral&gt; referrals = records.stream()</span>
+<span class="fc" id="L115">                .map(referralRecord -&gt; new Referral(referralRecord.getCustomerId(),</span>
+<span class="fc" id="L116">                        referralRecord.getReferrerId(), referralRecord.getDateReferred().toString()))</span>
+<span class="fc" id="L117">                .collect(Collectors.toList());</span>
+<span class="fc" id="L118">        return referrals;</span>
     }
 
 
     public ReferralResponse addReferral(ReferralRequest referral) {
-<span class="pc bpc" id="L60" title="2 of 6 branches missed.">        if (referral == null || referral.getCustomerId() == null || referral.getCustomerId().length() == 0) {</span>
-<span class="fc" id="L61">            throw new InvalidDataException(&quot;Request must contain a valid Customer ID&quot;);</span>
+<span class="pc bpc" id="L123" title="2 of 6 branches missed.">        if (referral == null || referral.getCustomerId() == null || referral.getCustomerId().length() == 0) {</span>
+<span class="fc" id="L124">            throw new InvalidDataException(&quot;Request must contain a valid Customer ID&quot;);</span>
         }
-<span class="fc" id="L63">        ReferralRecord record = ReferralConverter.fromRequestToRecord(referral);</span>
-<span class="fc" id="L64">        referralDao.addReferral(record);</span>
-<span class="fc" id="L65">        return ReferralConverter.fromRecordToResponse(record);</span>
+<span class="fc" id="L126">        ReferralRecord record = ReferralConverter.fromRequestToRecord(referral);</span>
+<span class="fc" id="L127">        referralDao.addReferral(record);</span>
+<span class="fc" id="L128">        return ReferralConverter.fromRecordToResponse(record);</span>
     }
 
     public boolean deleteReferrals(List&lt;String&gt; customerIds){
-<span class="nc" id="L69">        boolean allDeleted = true;</span>
+<span class="nc" id="L132">        boolean allDeleted = true;</span>
 
-<span class="nc bnc" id="L71" title="All 2 branches missed.">        if(customerIds == null){</span>
-<span class="nc" id="L72">            throw new InvalidDataException(&quot;Request must contain a valid list of Customer ID&quot;);</span>
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        if(customerIds == null){</span>
+<span class="nc" id="L135">            throw new InvalidDataException(&quot;Request must contain a valid list of Customer ID&quot;);</span>
         }
 
-<span class="nc bnc" id="L75" title="All 2 branches missed.">        for(String customerId : customerIds){</span>
-<span class="nc bnc" id="L76" title="All 4 branches missed.">            if(customerId == null || customerId.length() == 0){</span>
-<span class="nc" id="L77">                throw new InvalidDataException(&quot;Customer ID cannot be null or empty to delete&quot;);</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">        for(String customerId : customerIds){</span>
+<span class="nc bnc" id="L139" title="All 4 branches missed.">            if(customerId == null || customerId.length() == 0){</span>
+<span class="nc" id="L140">                throw new InvalidDataException(&quot;Customer ID cannot be null or empty to delete&quot;);</span>
             }
 
-<span class="nc" id="L80">            ReferralRecord record = new ReferralRecord();</span>
-<span class="nc" id="L81">            record.setCustomerId(customerId);</span>
+<span class="nc" id="L143">            ReferralRecord record = new ReferralRecord();</span>
+<span class="nc" id="L144">            record.setCustomerId(customerId);</span>
 
-<span class="nc" id="L83">            boolean deleted = referralDao.deleteReferral(record);</span>
+<span class="nc" id="L146">            boolean deleted = referralDao.deleteReferral(record);</span>
 
-<span class="nc bnc" id="L85" title="All 2 branches missed.">            if(!deleted){</span>
-<span class="nc" id="L86">                allDeleted = false;</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">            if(!deleted){</span>
+<span class="nc" id="L149">                allDeleted = false;</span>
             }
-<span class="nc" id="L88">        }</span>
-<span class="nc" id="L89">        return allDeleted;</span>
+<span class="nc" id="L151">        }</span>
+<span class="nc" id="L152">        return allDeleted;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>

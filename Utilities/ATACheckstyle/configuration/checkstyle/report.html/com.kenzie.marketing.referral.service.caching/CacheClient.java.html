@@ -4,10 +4,39 @@ import com.kenzie.marketing.referral.service.dependency.DaggerServiceComponent;
 
 import redis.clients.jedis.Jedis;
 
+import java.util.Optional;
+
 public class CacheClient {
 
-<span class="nc" id="L9">    public CacheClient() {}</span>
+<span class="nc" id="L11">    public CacheClient() {}</span>
 
+    public void setValue(String key, String value){
+<span class="nc" id="L14">        checkNonNullKey(key);</span>
+<span class="nc" id="L15">        Jedis cache = DaggerServiceComponent.create().provideJedis();</span>
+<span class="nc" id="L16">        cache.set(key, value);</span>
+<span class="nc" id="L17">        cache.close();</span>
+<span class="nc" id="L18">    }</span>
+
+    public String getValue(String key){
+<span class="nc" id="L21">        checkNonNullKey(key);</span>
+<span class="nc" id="L22">        Jedis cache = DaggerServiceComponent.create().provideJedis();</span>
+<span class="nc" id="L23">        String value = cache.get(key);</span>
+<span class="nc" id="L24">        cache.close();</span>
+<span class="nc" id="L25">        return value;</span>
+    }
+
+    public void invalidate(String key){
+<span class="nc" id="L29">        checkNonNullKey(key);</span>
+<span class="nc" id="L30">        Jedis cache = DaggerServiceComponent.create().provideJedis();</span>
+<span class="nc" id="L31">        cache.del(key);</span>
+<span class="nc" id="L32">        cache.close();</span>
+<span class="nc" id="L33">    }</span>
+
+    private void checkNonNullKey(String key){
+<span class="nc bnc" id="L36" title="All 2 branches missed.">        if(key == null){</span>
+<span class="nc" id="L37">            throw  new IllegalArgumentException(&quot;Key must not be null&quot;);</span>
+        }
+<span class="nc" id="L39">    }</span>
     // Put your Cache Client Here
 
     // Since Jedis is being used multithreaded, you MUST get a new Jedis instances and close it inside every method.

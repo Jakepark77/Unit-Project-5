@@ -30,7 +30,7 @@ public class DaoModule {
     public DynamoDBMapper provideDynamoDBMapper() {
         return new DynamoDBMapper(DynamoDbClientProvider.getDynamoDBClient());
     }
-    
+
 
     @Singleton
     @Provides
